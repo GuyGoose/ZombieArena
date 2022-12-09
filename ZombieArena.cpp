@@ -7,6 +7,7 @@
 #include "zombieArena.h"
 #include "textureHolder.h"
 #include "bullet.h"
+#include "pickup.h"
 
 using namespace sf;
 
@@ -59,6 +60,12 @@ int main()
     Texture textureCrosshair = TextureHolder::GetTexture("graphics/crosshair.png");
     spriteCrosshair.setTexture(textureCrosshair);
     spriteCrosshair.setOrigin(25, 25);
+
+    Pickup healthPickup(1);
+    Pickup ammoPickup(2);
+
+    int score = 0;
+    int hiScore = 0;
 
     while (window.isOpen()) {
 
@@ -202,6 +209,9 @@ int main()
 
                 player.spawn(arena, resolution, tileSize);
 
+                healthPickup.setArena(arena);
+                ammoPickup.setArena(arena);
+
                 numZombies = 10;
 
                 delete[] zombies;
@@ -248,6 +258,86 @@ int main()
                     bullets[i].update(dtAsSeconds);
                 }
             }
+
+            healthPickup.update(dtAsSeconds);
+            ammoPickup.update(dtAsSeconds);
+
+            // Collision detection
+            // Have any zombies been shot?
+            for (int i = 0; i < 100; i++)
+            {
+                for (int j = 0; j < numZombies; j++)
+                {
+                    if (bullets[i].isInFlight() &&
+                        zombies[j].isAlive())
+                    {
+                        if (bullets[i].getPosition().intersects
+                        (zombies[j].getPosition()))
+                        {
+                            // Stop the bullet
+                            bullets[i].stop();
+
+                            // Register the hit and see if it was a kill
+                            if (zombies[j].hit()) {
+                                // Not just a hit but a kill too
+                                score += 10;
+                                if (score >= hiScore)
+                                {
+                                    hiScore = score;
+                                }
+
+                                numZombiesAlive--;
+
+                                // When all the zombies are dead (again)
+                                if (numZombiesAlive == 0) {
+                                    state = State::LEVELING_UP;
+                                }
+                            }
+
+                        }
+                    }
+
+                }
+            }// End zombie being shot
+
+
+            // Have any zombies touched the player?
+            for (int i = 0; i < numZombies; i++)
+            {
+                if (player.getPosition().intersects
+                (zombies[i].getPosition()) && zombies[i].isAlive())
+                {
+
+                    if (player.hit(gameTimeTotal))
+                    {
+                        // More here later
+                    }
+
+                    if (player.getHealth() <= 0)
+                    {
+                        state = State::GAME_OVER;
+
+                    }
+                }
+            }// End player touched
+
+
+            // Has the player touched health pickup?
+            if (player.getPosition().intersects
+            (healthPickup.getPosition()) && healthPickup.isSpawned())
+            {
+                player.increasedHealthLevel(healthPickup.gotIt());
+
+            }// End player touch health
+
+
+            // Has the player touched ammo pickup?
+            if (player.getPosition().intersects
+            (ammoPickup.getPosition()) && ammoPickup.isSpawned())
+            {
+                bulletsSpare += ammoPickup.gotIt();
+
+            } // End player touch ammo
         }
 
         /*
@@ -275,6 +365,14 @@ int main()
             }
 
             window.draw(player.getSprite());
+
+            if (ammoPickup.isSpawned()) {
+                window.draw(ammoPickup.getSprite());
+            }
+
+            if (healthPickup.isSpawned()) {
+                window.draw(healthPickup.getSprite());
+            }
 
             window.draw(spriteCrosshair);
         }
